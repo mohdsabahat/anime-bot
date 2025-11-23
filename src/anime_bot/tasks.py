@@ -8,7 +8,7 @@ from .config import settings
 from .uploader import Uploader  # we'll create uploader in bot and pass in
 from hachoir.metadata import extractMetadata
 from hachoir.parser import createParser
-
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -64,8 +64,13 @@ class DownloadUploadTask:
             try:
                 await status(f"Uploading ep {ep_num} ({os.path.basename(res.filepath)}) ...")
                 # progress callback factory
+                start_time = time.time()
                 def progress_cb(current, total):
                     # schedule updates; non-blocking
+                    cur_time = time.time()
+                    if (cur_time - start_time) < 5:
+                        return
+                    start_time = cur_time
                     try:
                         asyncio.create_task(status(f"Uploading ep {ep_num}: {current//(1024*1024)}/{total//(1024*1024)} MB"))
                     except Exception:

@@ -210,9 +210,8 @@ async def download_cmd(event: events.NewMessage.Event):
         return
 
     await status_msg.edit(f"Queued download for {anime_slug} episodes {spec}")
-    
     task = DownloadUploadTask(client, anime_title, anime_slug, chosen, 
-                              event.chat_id, uploader, event.message.from_id,
+                              event.chat_id, uploader, event.message.peer_id.user_id,
                               quality="360", audio="jpn"
                               )
     asyncio.create_task(task.run(status_callback=lambda t: status_msg.edit(t)))
