@@ -64,13 +64,11 @@ class DownloadUploadTask:
             try:
                 await status(f"Uploading ep {ep_num} ({os.path.basename(res.filepath)}) ...")
                 # progress callback factory
-                start_time = time.time()
-                def progress_cb(current, total):
+                def progress_cb(current, total, s_time):
                     # schedule updates; non-blocking
                     cur_time = time.time()
-                    if (cur_time - start_time) < 5:
+                    if (cur_time - s_time) < 5:
                         return
-                    start_time = cur_time
                     try:
                         asyncio.create_task(status(f"Uploading ep {ep_num}: {current//(1024*1024)}/{total//(1024*1024)} MB"))
                     except Exception:
@@ -78,8 +76,10 @@ class DownloadUploadTask:
 
                 # TODO: replace chat id with the id of person who uploaded 
                 caption = f"{self.anime_title} - Episode {ep_num}\n\nUploaded by: {self.chat_id}"
+                start_time = time.time()
                 msg = await self.uploader.upload_file(settings.vault_channel_id, res.filepath, caption=caption, 
-                                                      progress_callback=progress_cb, thumbnail=thumb
+                                                      progress_callback= lambda d, t: progress_cb(d, t, start_time), 
+                                                      thumbnail=thumb
                                                       )
                 filesize = os.path.getsize(res.filepath) if os.path.exists(res.filepath) else None
                 # insert DB
