@@ -1,0 +1,12 @@
+telethon>=1.25.0
+SQLAlchemy>=1.4.0
+aiosqlite>=0.18.0
+pydantic>=1.9.0
+pydantic-settings
+python-dotenv>=1.0.0
+tqdm>=4.65.0
+animepahe-dl>=5.4.0
+cryptg>=0.5.2
+alembic>=1.17.2
+hachoir>=3.3.0
+pillow>=12.0.0
