@@ -132,3 +132,18 @@ async def list_distinct_anime_titles() -> List[str]:
         query = select(UploadedFile.anime_title).distinct()
         res = await session.execute(query)
         return [r[0] for r in res.fetchall()]
+
+
+async def get_uploaded_file_by_id(file_id: int) -> Optional[UploadedFile]:
+    """Fetch a single UploadedFile record by its primary key id.
+
+    Args:
+        file_id: Primary key id of the UploadedFile.
+
+    Returns:
+        UploadedFile instance or None if not found.
+    """
+    async with AsyncSessionLocal() as session:
+        query = select(UploadedFile).where(UploadedFile.id == file_id).limit(1)
+        res = await session.execute(query)
+        return res.scalar_one_or_none()

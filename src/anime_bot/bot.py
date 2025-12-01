@@ -194,7 +194,7 @@ async def pick_episode_callback(event: events.CallbackQuery.Event) -> None:
         [match],
         chat_id,
         uploader,
-        uploader_id=event.sender_id,
+        uploader_id=event.message.peer_id.user_id,
     )
     asyncio.create_task(task.run(status_callback=lambda t: status_msg.edit(t)))
     await event.answer("Queued", alert=False)
@@ -332,13 +332,29 @@ async def get_command(event: events.NewMessage.Event) -> None:
         await event.reply(f"No cached file for {anime} ep {ep}. Use /search and download.")
         return
     try:
+        # Prefer sending as a copy so the forwarded file appears as a new message
+        # (no "forwarded from" header). Telethon supports `as_copy=True`.
         await client.forward_messages(
-            event.chat_id, message_ids=row.uploaded_message_id, from_peer=row.uploaded_chat_id
+            event.chat_id,
+            message_ids=row.uploaded_message_id,
+            from_peer=row.uploaded_chat_id,
+            as_copy=True,
         )
-        await event.reply("Forwarded from cache.")
+        await event.reply("Sent from cache.")
     except Exception as exc:
-        logger.exception("forward failed")
-        await event.reply(f"Could not forward cached file: {exc}")
+        # Fallback: fetch the original message and re-upload its media using send_file.
+        logger.exception("forward as copy failed, attempting fallback send_file")
+        try:
+            # get_messages will return the original message object
+            orig = await client.get_messages(row.uploaded_chat_id, ids=row.uploaded_message_id)
+            if orig and orig.media:
+                await client.send_file(event.chat_id, orig.media)#, caption=orig.caption)
+                await event.reply("Sent from cache (re-uploaded).")
+            else:
+                await event.reply("Cached record has no media to send.")
+        except Exception as exc2:
+            logger.exception("fallback send_file failed")
+            await event.reply(f"Could not send cached file: {exc2}")
 
 # @client.on(events.NewMessage(pattern=r"^/list\s+(.+)$"))
 # async def list_cmd(event: events.NewMessage.Event):
