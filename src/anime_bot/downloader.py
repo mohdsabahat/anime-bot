@@ -1,9 +1,22 @@
-import asyncio, os, shutil, logging, tempfile
+"""
+Anime episode download service for anime-bot.
+
+This module provides functionality to download anime episodes from AnimePahe,
+including stream selection, playlist downloading, and video compilation.
+"""
+import asyncio
+import logging
+import os
+import shutil
+import tempfile
 from typing import Optional, List, Dict, Any
+
+from bs4 import BeautifulSoup
+from anime_downloader import config as AnimepaheConfig
+
 from .anime_api import AnimePaheClient
 from .config import settings
-from anime_downloader import config as AnimepaheConfig 
-from bs4 import BeautifulSoup
+from .constants import DEFAULT_NUM_THREADS
 from .logging_config import configure_logging
 
 configure_logging()
@@ -18,7 +31,27 @@ except Exception:
     download_episode_async = None
 
 class EpisodeDownloadResult:
-    def __init__(self, episode_number:int, episode_qual:int, episode_lang:str, filepath:Optional[str], success:bool, reason:Optional[str]=None):
+    """Result of an episode download operation.
+
+    Attributes:
+        episode: The episode number.
+        episode_qual: The quality of the downloaded episode.
+        episode_lang: The audio language of the downloaded episode.
+        filepath: Path to the downloaded file (None if failed).
+        success: Whether the download was successful.
+        reason: Reason for failure (if applicable).
+    """
+
+    def __init__(
+        self,
+        episode_number: int,
+        episode_qual: int,
+        episode_lang: str,
+        filepath: Optional[str],
+        success: bool,
+        reason: Optional[str] = None,
+    ) -> None:
+        """Initialize the download result."""
         self.episode = episode_number
         self.episode_qual = episode_qual
         self.episode_lang = episode_lang
@@ -27,15 +60,31 @@ class EpisodeDownloadResult:
         self.reason = reason
 
 class AnimeDownloaderService:
-    def __init__(self):
+    """Service for downloading anime episodes from AnimePahe.
+
+    Handles the complete download workflow including stream selection,
+    playlist downloading, and video compilation.
+    """
+
+    def __init__(self) -> None:
+        """Initialize the downloader service."""
         self.client = AnimePaheClient(verify_ssl=True)
         os.makedirs(settings.download_dir, exist_ok=True)
 
-    async def get_stream_qualities(self, anime_slug: str, ep_session: str) -> List[Dict[str,str]]:
+    async def get_stream_qualities(
+        self, anime_slug: str, ep_session: str
+    ) -> Optional[List[Dict[str, Any]]]:
+        """Fetch available stream qualities for an episode.
+
+        Patch of the animepahe-dl library to fetch URLs for all episode qualities.
+
+        Args:
+            anime_slug: The anime session/slug identifier.
+            ep_session: The episode session identifier.
+
+        Returns:
+            List of stream dicts with quality, audio, and url, or None if failed.
         """
-        patch of the animepahe-dl library to fetch url's for all episode quality
-        """
-        
         play_url = f"{AnimepaheConfig.PLAY_URL}/{anime_slug}/{ep_session}"
         response = self.client._api._request(play_url)
         if not response:
@@ -46,44 +95,64 @@ class AnimeDownloaderService:
 
         # Extract only the primitive values we need into plain Python dicts
         streams: List[Dict[str, Any]] = []
-        for b in buttons:
+        for btn in buttons:
             streams.append(
                 {
-                    "quality": b.get("data-resolution") or "0",
-                    "audio": b.get("data-audio") or None,
-                    "url": b.get("data-src") or None,
+                    "quality": btn.get("data-resolution") or "0",
+                    "audio": btn.get("data-audio") or None,
+                    "url": btn.get("data-src") or None,
                 }
             )
-        
+
         if not streams:
             logger.warning("No streams found on the page.")
             return None
-        
+
         # Log available streams for debugging
         available_streams_str = ", ".join(
             [f"{s['quality']}p ({s['audio']})" for s in streams if s.get("quality")]
         )
-        logger.info(f"Available streams: {available_streams_str}")
+        logger.info("Available streams: %s", available_streams_str)
 
-        for s in streams:
-            q_raw = s.get("quality")
+        for stream in streams:
+            q_raw = stream.get("quality")
             try:
-                s["quality_val"] = int(q_raw) if q_raw is not None else 0
+                stream["quality_val"] = int(q_raw) if q_raw is not None else 0
             except (ValueError, TypeError):
-                s["quality_val"] = 0
+                stream["quality_val"] = 0
 
         # Sort streams by quality ascending
         streams.sort(key=lambda s: int(s.get("quality_val", 0)))
-        
+
         return streams
 
-    async def download_episode(self, anime_title:str, anime_slug:str, ep_session:str, episode_number:int, quality:str="720", audio:str="jpn") -> EpisodeDownloadResult:
-        """
+    async def download_episode(
+        self,
+        anime_title: str,
+        anime_slug: str,
+        ep_session: str,
+        episode_number: int,
+        quality: str = "720",
+        audio: str = "jpn",
+    ) -> EpisodeDownloadResult:
+        """Download an anime episode.
+
+        Workflow:
         1) Get stream URL
         2) Get playlist (m3u8)
         3) Download segments (prefer async function if available)
         4) Compile into mp4
-        Returns EpisodeDownloadResult with local file path or failure
+
+        Args:
+            anime_title: The title of the anime.
+            anime_slug: The anime session/slug identifier.
+            ep_session: The episode session identifier.
+            episode_number: The episode number.
+            quality: Preferred video quality (default: "720").
+            audio: Preferred audio language (default: "jpn").
+
+        Returns:
+            EpisodeDownloadResult with local file path or failure reason.
         """
         try:
             # TODO: Add a condition to pass stream url in query params and skip fetching the episode page here if passed.
@@ -95,16 +164,16 @@ class AnimeDownloaderService:
             audio_streams = [s for s in streams if s.get("audio") == audio]
             if not audio_streams:
                 logger.warning(
-                    f"Audio '{audio}' not found. Selecting from available audio languages."
+                    "Audio '%s' not found. Selecting from available audio languages.", audio
                 )
                 audio_streams = streams  # Fallback to all streams
-            
+
             # --- Quality Selection ---
             selected_stream = None
             stream_qual = None
             stream_lang = None
             try:
-                print(f"dowbloader: {quality}")
+                logger.debug("downloader: quality=%s", quality)
                 target_quality = int(quality)
                 # Find best match: exact or next best available
                 for stream in audio_streams:
@@ -117,50 +186,63 @@ class AnimeDownloaderService:
                 if not selected_stream and audio_streams:
                     selected_stream = audio_streams[-1]
                     logger.warning(
-                        f"Quality '{quality}p' not found. "
-                        f"Selected next best available: {selected_stream['quality']}p."
+                        "Quality '%sp' not found. Selected next best available: %sp.",
+                        quality,
+                        selected_stream["quality"],
                     )
             except ValueError:
                 logger.error(
-                    f"Invalid quality specified: '{quality}'. Please use a number like '720'."
+                    "Invalid quality specified: '%s'. Please use a number like '720'.", quality
                 )
                 return None
 
             if not selected_stream:
-                return EpisodeDownloadResult(episode_number, 0, stream_lang, None, False, "No stream URL")
+                return EpisodeDownloadResult(
+                    episode_number, 0, stream_lang or "", None, False, "No stream URL"
+                )
 
-            stream_url = selected_stream.get('url', None)
+            stream_url = selected_stream.get("url", None)
             playlist_url = await self.client.get_playlist_url(stream_url)
             if not playlist_url:
-                return EpisodeDownloadResult(episode_number, 0, stream_lang, None, False, "No playlist URL")
+                return EpisodeDownloadResult(
+                    episode_number, 0, stream_lang or "", None, False, "No playlist URL"
+                )
 
             # create a temporary working dir per episode
             tmpdir = tempfile.mkdtemp(prefix=f"ep_{episode_number}_")
             try:
                 playlist_path = await self.client.download_playlist(playlist_url, tmpdir)
                 if not playlist_path:
-                    return EpisodeDownloadResult(episode_number, 0, stream_lang, None, False, "Failed to fetch playlist")
+                    return EpisodeDownloadResult(
+                        episode_number, 0, stream_lang or "", None, False, "Failed to fetch playlist"
+                    )
 
                 # prefer async downloader if available
                 if download_episode_async is not None:
                     # parse playlist to get segments etc or rely on helper
                     success = await download_episode_async(
-                        segments=None,  # docs example uses segments, but helper may accept playlist_path; we attempt to call with playlist_path pattern if helper supports - fallback to blocking below
+                        segments=None,
                         key=None,
                         media_sequence=0,
                         output_dir=tmpdir,
-                        max_concurrent=50
+                        max_concurrent=DEFAULT_NUM_THREADS,
                     )
                     # if helper didn't accept None, this call may fail; So fallback to blocking below
                     if not success:
                         # fallback to blocking download_from_playlist_cli
-                        success = await self.client.download_from_playlist(playlist_path, num_threads=50)
+                        success = await self.client.download_from_playlist(
+                            playlist_path, num_threads=DEFAULT_NUM_THREADS
+                        )
                 else:
                     # blocking download using downloader (run in executor)
-                    success = await self.client.download_from_playlist(playlist_path, num_threads=50)
+                    success = await self.client.download_from_playlist(
+                        playlist_path, num_threads=DEFAULT_NUM_THREADS
+                    )
 
                 if not success:
-                    return EpisodeDownloadResult(episode_number, 0, stream_lang, None, False, "Failed to download segments")
+                    return EpisodeDownloadResult(
+                        episode_number, 0, stream_lang or "", None, False, "Failed to download segments"
+                    )
 
                 # compile into an mp4 file
                 out_filename = f"{anime_title.replace('/', '_')}_ep{episode_number}.mp4"
@@ -168,15 +250,23 @@ class AnimeDownloaderService:
                 compiled = await self.client.compile_video(tmpdir, output_path, progress_callback=None)
                 if not compiled:
                     # maybe the download produced a single file already - check tmpdir for mp4
-                    mp4s = [os.path.join(tmpdir, f) for f in os.listdir(tmpdir) if f.endswith(('.mp4','.mkv'))]
+                    mp4s = [
+                        os.path.join(tmpdir, f)
+                        for f in os.listdir(tmpdir)
+                        if f.endswith((".mp4", ".mkv"))
+                    ]
                     if mp4s:
                         # move first found
                         shutil.move(mp4s[0], output_path)
                         compiled = True
                 if not compiled:
-                    return EpisodeDownloadResult(episode_number, 0, stream_lang, None, False, "Failed to compile video")
+                    return EpisodeDownloadResult(
+                        episode_number, 0, stream_lang or "", None, False, "Failed to compile video"
+                    )
 
-                return EpisodeDownloadResult(episode_number, stream_qual, stream_lang, output_path, True, None)
+                return EpisodeDownloadResult(
+                    episode_number, stream_qual, stream_lang or "", output_path, True, None
+                )
             finally:
                 # remove temp dir after compilation unless debugging (we already moved file)
                 try:
@@ -184,6 +274,6 @@ class AnimeDownloaderService:
                         shutil.rmtree(tmpdir, ignore_errors=True)
                 except Exception:
                     logger.exception("cleanup tmpdir failed")
-        except Exception as e:
+        except Exception as exc:
             logger.exception("download_episode error")
-            return EpisodeDownloadResult(episode_number, 0, stream_lang, None, False, str(e))
+            return EpisodeDownloadResult(episode_number, 0, "", None, False, str(exc))
