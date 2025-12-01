@@ -1,10 +1,21 @@
+"""
+Database models for anime-bot.
+
+Defines SQLAlchemy ORM models for storing uploaded file metadata.
+"""
 from sqlalchemy import Column, Integer, String, BigInteger, TIMESTAMP
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.sql import func
 
 Base = declarative_base()
 
+
 class UploadedFile(Base):
+    """Model for tracking uploaded anime episode files.
+
+    Stores metadata about files that have been uploaded to Telegram,
+    including episode information, chat IDs, and file details.
+    """
     __tablename__ = 'uploaded_files'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
