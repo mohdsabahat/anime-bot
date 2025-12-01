@@ -1,9 +1,9 @@
-\"\"\"
+"""
 Utility functions for anime-bot.
 
 Provides helper functions for episode specification parsing, fuzzy search,
 cache management, and video processing.
-\"\"\"
+"""
 import asyncio
 import datetime
 import logging
@@ -20,7 +20,7 @@ from .constants import EXACT_MATCH_SCORE, POSITION_PENALTY, CHAR_MATCH_SCORE
 
 logger = logging.getLogger(__name__)
 
-EP_SPEC_RE = re.compile(r\"^\\d+(-\\d+)?(,\\d+(-\\d+)?)*$\")
+EP_SPEC_RE = re.compile(r"^\d+(-\d+)?(,\d+(-\d+)?)*$")
 
 def validate_episode_spec(spec: str) -> bool:
     """Validate an episode specification string.

@@ -18,14 +18,14 @@ CLEANUP_INTERVAL_SECONDS: int = 3600
 
 
 async def cleanup_loop(stop_event: asyncio.Event) -> None:
-    \"\"\"Background task that periodically cleans up old downloaded files.
+    """Background task that periodically cleans up old downloaded files.
 
     Moves files older than the retention period to the archive directory,
     or deletes them if moving fails.
 
     Args:
         stop_event: Event to signal when the cleanup loop should stop.
-    \"\"\"
+    """
     download_dir = settings.download_dir
     archive_dir = settings.archive_dir
     os.makedirs(download_dir, exist_ok=True)

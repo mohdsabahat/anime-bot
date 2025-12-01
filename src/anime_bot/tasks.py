@@ -113,7 +113,7 @@ class DownloadUploadTask:
 
                 # progress callback factory
                 def progress_cb(current: int, total: int, s_time: float) -> None:
-                    \"\"\"Non-blocking progress callback for upload status updates.\"\"\"
+                    """Non-blocking progress callback for upload status updates."""
                     cur_time = time.time()
                     if (cur_time - s_time) < PROGRESS_UPDATE_INTERVAL:
                         return
