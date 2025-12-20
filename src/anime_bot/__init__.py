@@ -9,4 +9,4 @@ from .bot import client, main
 __all__ = ["client", "main"]
 
 # Import commands to register handlers (must be after client is defined)
-from .commands import ping, list
+from .commands import ping, list, start  # noqa: F401

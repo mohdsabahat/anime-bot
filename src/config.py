@@ -15,6 +15,9 @@ class CommonSettings(BaseSettings):
     # Logging
     log_level: str = "INFO"
 
+    env: str = "development"
+    debug: bool = True
+
     # Pydantic v2 configuration: accept extra env vars and set env file
     model_config = {
         "env_file": ".env",

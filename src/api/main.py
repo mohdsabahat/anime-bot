@@ -13,13 +13,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from .config import api_settings
-from .routes import auth, files, health
+from .routes import auth, files, health, search
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-)
+# logging.basicConfig(
+#     level=logging.INFO,
+#     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+# )
 logger = logging.getLogger(__name__)
 
 
@@ -42,6 +42,7 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
     lifespan=lifespan,
+    debug=api_settings.debug,
 )
 
 # Configure CORS
@@ -70,6 +71,7 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
 app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(files.router)
+app.include_router(search.router)
 
 
 def run_server() -> None:
@@ -80,10 +82,10 @@ def run_server() -> None:
         "src.api.main:app",
         host=api_settings.api_host,
         port=api_settings.api_port,
-        reload=False,
+        reload=api_settings.debug,
         log_level="info",
     )
 
 
-if __name__ == "__main__":
-    run_server()
+# if __name__ == "__main__":
+#     run_server()

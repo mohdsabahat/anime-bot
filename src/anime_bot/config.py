@@ -40,6 +40,13 @@ class Settings(CommonSettings):
     # Telegram channel for file storage
     vault_channel_id: int = 0
 
+    # Redis configuration for caching
+    redis_url: str = "redis://localhost:6379/0"
+
+    # PREFIX for start bot command
+    token_prefix: str = "connect:token:"
+    session_chat_prefix: str = "session:chat:"
+
     # Inherit model_config from CommonSettings; no extra Config class needed
 
 

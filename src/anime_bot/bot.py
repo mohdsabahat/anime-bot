@@ -36,7 +36,9 @@ from .utils import (
     fuzzy_score,
 )
 from .cleanup import cleanup_loop
+from .redis_client import RedisClient
 
+# Configure logging
 configure_logging()
 logger = logging.getLogger(__name__)
 
@@ -58,13 +60,13 @@ async def on_startup() -> None:
     logger.info("Bot started")
 
 
-@client.on(events.NewMessage(pattern=r"^/start$"))
-async def start_handler(event: events.NewMessage.Event) -> None:
-    """Handle the /start command."""
-    await event.reply(
-        "Hello — send `/search <anime name>` to search for anime. "
-        "After selecting an anime send an episode list like `1-3` or use `/download <slug> <spec>`."
-    )
+# @client.on(events.NewMessage(pattern=r"^/start$"))
+# async def start_handler(event: events.NewMessage.Event) -> None:
+#     """Handle the /start command."""
+#     await event.reply(
+#         "Hello — send `/search <anime name>` to search for anime. "
+#         "After selecting an anime send an episode list like `1-3` or use `/download <slug> <spec>`."
+#     )
 
 @client.on(events.NewMessage(pattern=r"^/search\s+(.+)$"))
 async def search_handler(event: events.NewMessage.Event) -> None:
@@ -379,6 +381,7 @@ async def main() -> None:
     finally:
         stop_event.set()
         await cleanup_task
+        await RedisClient.close()
 
 # if __name__ == "__main__":
 #     asyncio.run(main())

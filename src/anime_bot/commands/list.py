@@ -16,12 +16,13 @@ from ..models import UploadedFile
 from ..utils import fuzzy_score
 from ..constants import MAX_MESSAGE_LENGTH, TRUNCATED_MESSAGE_LENGTH
 from ..logging_config import configure_logging
+import logging
 
 # UI Constants for list command
 MAX_TITLE_BUTTON_LENGTH = 20
 MAX_SEARCH_RESULTS = 8
 
-configure_logging()
+logger = logging.getLogger(__name__)
 
 def format_file_size(size_bytes: int | None) -> str:
     """Format file size in human-readable format.
