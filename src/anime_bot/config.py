@@ -5,9 +5,10 @@ Uses pydantic-settings for environment variable loading and validation.
 All settings can be configured via environment variables or a .env file.
 """
 from pydantic_settings import BaseSettings
+from src.config import CommonSettings
 
 
-class Settings(BaseSettings):
+class Settings(CommonSettings):
     """Application settings loaded from environment variables."""
 
     # Telegram API credentials
@@ -39,11 +40,7 @@ class Settings(BaseSettings):
     # Telegram channel for file storage
     vault_channel_id: int = 0
 
-    class Config:
-        """Pydantic settings configuration."""
-
-        env_file = ".env"
-        env_file_encoding = "utf-8"
+    # Inherit model_config from CommonSettings; no extra Config class needed
 
 
 settings = Settings()
