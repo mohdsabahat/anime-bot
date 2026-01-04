@@ -5,7 +5,7 @@ pydantic>=1.9.0
 pydantic-settings
 python-dotenv>=1.0.0
 tqdm>=4.65.0
-animepahe-dl>=5.4.0
+git+https://github.com/ayushjaipuriyar/animepahe-dl
 cryptg>=0.5.2
 alembic>=1.17.2
 hachoir>=3.3.0

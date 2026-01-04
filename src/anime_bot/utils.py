@@ -13,7 +13,7 @@ import time
 from pathlib import Path
 from typing import List, Dict
 
-from anime_downloader import config
+from anime_downloader.utils.constants import ANIME_LIST_CACHE_FILE
 
 from .anime_api import AnimePaheClient
 from .constants import EXACT_MATCH_SCORE, POSITION_PENALTY, CHAR_MATCH_SCORE
@@ -109,7 +109,7 @@ async def load_from_cache(api: AnimePaheClient) -> List[Dict]:
 
     The file IO is executed in a threadpool to avoid blocking the event loop.
     """
-    cache_path = Path(config.ANIME_LIST_CACHE_FILE)
+    cache_path = Path(ANIME_LIST_CACHE_FILE)
     freshness_threshold = datetime.timedelta(days=1)
 
     def _is_fresh(path: Path) -> bool:

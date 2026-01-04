@@ -12,14 +12,14 @@ import tempfile
 from typing import Optional, List, Dict, Any
 
 from bs4 import BeautifulSoup
-from anime_downloader import config as AnimepaheConfig
+from anime_downloader.utils import constants as AnimepaheConfig
 
 from .anime_api import AnimePaheClient
 from .config import settings
 from .constants import DEFAULT_NUM_THREADS
 from .logging_config import configure_logging
 
-configure_logging()
+# configure_logging()
 
 logger = logging.getLogger(__name__)
 
@@ -211,6 +211,9 @@ class AnimeDownloaderService:
             # create a temporary working dir per episode
             tmpdir = tempfile.mkdtemp(prefix=f"ep_{episode_number}_")
             try:
+                logger.info("Downloading episode %d to temp dir %s", episode_number, tmpdir)
+                logger.info("Using playlist URL: %s", playlist_url)
+                logger.info("Using stream URL: %s", stream_url)
                 playlist_path = await self.client.download_playlist(playlist_url, tmpdir)
                 if not playlist_path:
                     return EpisodeDownloadResult(

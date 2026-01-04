@@ -13,9 +13,8 @@ logger = logging.getLogger(__name__)
 # Provided API from docs
 try:
     from anime_downloader.api import AnimePaheAPI
-    from anime_downloader.downloader import Downloader
-    from anime_downloader.async_downloader import download_episode_async
-    from anime_downloader import config, config_manager
+    from anime_downloader.api.downloader import Downloader
+    from anime_downloader.utils import constants, config_manager
 except Exception as exc:
     # if import fails we'll surface a helpful error when used
     AnimePaheAPI = None
@@ -39,8 +38,8 @@ class AnimePaheClient:
         if AnimePaheAPI is None:
             raise RuntimeError("anime_downloader.api.AnimePaheAPI not importable")
         app_config = config_manager.load_config()
-        if "base_url" in app_config and app_config["base_url"] != config.BASE_URL:
-            config.set_base_url(app_config["base_url"])
+        if "base_url" in app_config and app_config["base_url"] != constants.BASE_URL:
+            constants.set_base_url(app_config["base_url"])
         self._api = AnimePaheAPI(verify_ssl=verify_ssl)
 
     async def search(self, query: str) -> List[Dict[str, str]]:
