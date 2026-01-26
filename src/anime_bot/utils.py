@@ -117,25 +117,27 @@ async def load_from_cache(api: AnimePaheClient) -> List[Dict]:
             if not path.exists():
                 return False
             mtime = datetime.datetime.fromtimestamp(path.stat().st_mtime)
-            return (datetime.datetime.now() - mtime) <= freshness_threshold
+            is_fresh = datetime.datetime.now() - mtime <= freshness_threshold
+            logger.debug("Cache file %s last modified at %s, is_fresh=%s", path, mtime, is_fresh)
+            return is_fresh
         except Exception:
+            logger.exception("Error checking cache file freshness at %s", path)
             return False
-
-    loop = asyncio.get_running_loop()
 
     try:
         if not _is_fresh(cache_path):
             # Attempt to refresh cache; let any exceptions surface to be handled below
-            loop = asyncio.get_running_loop()
-            logger.info("Updating anime cache!!")
-            await loop.run_in_executor(None, lambda: api._api.download_anime_list_cache)
-            # await api.download_anime_list_cache()
+            logger.info("Cache is stale or missing, downloading fresh anime list cache...")
+            # await loop.run_in_executor(None, lambda: api._api.download_anime_list_cache)
+            count = api._api.download_anime_list_cache()
+            logger.info("Downloaded fresh anime list cache with %d entries.", count)
 
         if not cache_path.exists():
             logger.warning("Anime list cache does not exist at %s", cache_path)
             return []
 
         def _read_cache() -> List[Dict]:
+            logger.info("Reading anime list cache from %s", cache_path)
             results = []
             with cache_path.open("r", encoding="utf-8") as fh:
                 for line in fh:
@@ -145,7 +147,7 @@ async def load_from_cache(api: AnimePaheClient) -> List[Dict]:
                 raise ValueError("Cache file is empty")
             return results
 
-        animes = await loop.run_in_executor(None, _read_cache)
+        animes = _read_cache() 
         return animes
     except Exception as exc:
         logger.exception("Failed to load anime list cache: %s", exc)

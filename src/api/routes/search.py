@@ -13,7 +13,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..auth import get_current_user
 from ..database import get_db
-from anime_bot.models import UploadedFile
+from anime_bot.models import Anime
+from ..schemas import AnimeTitleItem
 
 import logging
 
@@ -21,13 +22,13 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/search", tags=["Search Titles"])
 
-@router.get("/", response_model=List[str])
+@router.get("/", response_model=List[AnimeTitleItem])
 async def search_titles(
     query: str = Query(..., min_length=1, description="Search query for anime titles"),
     limit: int = Query(10, ge=1, le=100, description="Maximum number of results to return"),
     db: AsyncSession = Depends(get_db),
     current_user: str = Depends(get_current_user),
-) -> List[str]:
+) -> List[AnimeTitleItem]:
     """
     Search for anime titles matching the query string.
 
@@ -39,11 +40,24 @@ async def search_titles(
         List of matching anime titles.
     """
     try:
-        stmt = select(UploadedFile.anime_title).where(UploadedFile.anime_title.ilike(f"%{query}%")).distinct().limit(limit)
+        stmt = (
+            select(Anime)
+            .where(Anime.title.ilike(f"%{query}%"))
+            .order_by(Anime.title)
+            .limit(limit)
+        )
         result = await db.execute(stmt)
-        titles = [row[0] for row in result.fetchall()]
-        logger.debug(f"Search query: {query}, Results found: {len(titles)}")
-        return titles
+        anime_rows = result.scalars().all()
+        items = []
+        for anime in anime_rows:
+            alt_titles = [t for t in anime.alt_titles.split('|') if t] if anime.alt_titles else []
+            items.append(AnimeTitleItem(
+                id=anime.id,
+                title=anime.title,
+                alt_titles=alt_titles
+            ))
+        logger.debug(f"Search query: {query}, Results found: {len(items)}")
+        return items
     except Exception as e:
         logger.error(f"Error searching titles: {e}")
         raise HTTPException(

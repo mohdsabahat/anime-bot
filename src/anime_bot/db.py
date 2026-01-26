@@ -13,7 +13,7 @@ from sqlalchemy import select
 from typing import Optional, List
 
 from .config import settings
-from .models import Base, UploadedFile
+from .models import Base, UploadedFile, Anime
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +44,7 @@ async def insert_uploaded_file(
     filename: str,
     filesize: int,
 ) -> UploadedFile:
-    """Insert a new uploaded file record into the database.
+    """Insert a new uploaded file record into the database. ensuring anime exists.
 
     Args:
         anime_title: The title of the anime.
@@ -61,7 +61,21 @@ async def insert_uploaded_file(
         The created UploadedFile object.
     """
     async with AsyncSessionLocal() as session:
+        # 1. Check if anime exists
+        query = select(Anime).where(Anime.title == anime_title)
+        result = await session.execute(query)
+        anime = result.scalar_one_or_none()
+
+        # 2. If not, create it
+        if not anime:
+            anime = Anime(title=anime_title)
+            session.add(anime)
+            await session.commit()
+            await session.refresh(anime)
+
+        # 3. Insert UploadedFile record
         obj = UploadedFile(
+            anime_id=anime.id,
             anime_title=anime_title,
             episode=episode,
             uploaded_chat_id=chat_id,

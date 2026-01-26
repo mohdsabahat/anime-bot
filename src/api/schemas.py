@@ -20,6 +20,10 @@ class TokenData(BaseModel):
 
     username: Optional[str] = None
 
+class AnimeTitleItem(BaseModel):
+    id: int
+    title: str
+    alt_titles: List[str]
 
 class UploadedFileResponse(BaseModel):
     """Response schema for a single uploaded file."""
@@ -37,6 +41,7 @@ class UploadedFileResponse(BaseModel):
     filename: str
     filesize: Optional[int] = None
     created_at: Optional[datetime] = None
+    anime: Optional[AnimeTitleItem] = None
 
     class Config:
         """Pydantic config for ORM mode."""
@@ -52,12 +57,11 @@ class UploadedFileListResponse(BaseModel):
     page: int
     page_size: int
     has_next: bool
+    anime: Optional[AnimeTitleItem] = None
 
 
 class AnimeTitleListResponse(BaseModel):
-    """Response schema for list of anime titles."""
-
-    titles: List[str]
+    titles: List[AnimeTitleItem]
     total: int
 
 

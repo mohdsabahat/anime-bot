@@ -174,7 +174,7 @@ async def pick_episode_callback(event: events.CallbackQuery.Event) -> None:
     """Handle single episode selection callback."""
     # payload: PICK_EP|<num>
     data = event.data.decode()
-    _, num = data.split("|", 1)
+    _, num = data.split("|", 2)
     chat_id = event.chat_id
     session_data = SESSION_STORE.get(chat_id)
     if not session_data:
@@ -196,7 +196,7 @@ async def pick_episode_callback(event: events.CallbackQuery.Event) -> None:
         [match],
         chat_id,
         uploader,
-        uploader_id=event.message.peer_id.user_id,
+        uploader_id=chat_id
     )
     asyncio.create_task(task.run(status_callback=lambda t: status_msg.edit(t)))
     await event.answer("Queued", alert=False)
@@ -274,7 +274,7 @@ async def download_command(event: events.NewMessage.Event) -> None:
         logger.exception("Loading from cache failed!")
         return
 
-    await status_msg.edit(f"Queued download for {anime_slug} episodes {spec}")
+    await status_msg.edit(f"Queued download for {anime_title} episodes {spec}")
     task = DownloadUploadTask(
         client,
         anime_title,
@@ -312,7 +312,7 @@ async def spec_reply_handler(event: events.NewMessage.Event) -> None:
         await event.reply("No matching episodes found in this anime for that spec.")
         return
     status_msg = await event.reply(f"Queued download for {session_data['anime_title']} episodes {spec}")
-    # TODO fox
+    logger.info(f"chat_id {chat_id}, uploader_id {event.sender_id} ")
     task = DownloadUploadTask(
         client,
         session_data["anime_title"],
@@ -321,6 +321,8 @@ async def spec_reply_handler(event: events.NewMessage.Event) -> None:
         chat_id,
         uploader,
         uploader_id=event.sender_id,
+        quality=DEFAULT_QUALITY,
+        audio=DEFAULT_AUDIO,
     )
     asyncio.create_task(task.run(status_callback=lambda t: status_msg.edit(t)))
 

@@ -14,7 +14,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-async def consume_connect_token(token: str) -> str | None:
+async def consume_connect_token(token: str, user_id: str) -> str | None:
     """
     Atomically consume a connection token and return the session ID.
     Returns None if token is invalid or expired.
@@ -23,30 +23,16 @@ async def consume_connect_token(token: str) -> str | None:
     key = f"{settings.token_prefix}{token}"
     
     try:
-        # GETDEL is atomic: get value and delete key in one operation
-        # Available in Redis >= 6.2
-        session_id = await RedisClient.getdel(key)
-        return session_id
+        logger.info(f"Searching for key: {key} to link user_id {user_id}")
+        saved_token_id = await RedisClient.get(key)
+        if not saved_token_id:
+            # Token is not updated yet
+            logger.info(f"Token {token} not found, set user_id {user_id} for future consumption.")
+        await RedisClient.set(key, user_id)
+        logger.info(f"Token {token} consumed, linked to user_id {user_id}.")
+        return saved_token_id
     except Redis.ResponseError:
-        # Fallback for older Redis: use Lua script for atomicity
-        lua_script = """
-        local v = redis.call('GET', KEYS[1])
-        if v then
-            redis.call('DEL', KEYS[1])
-        end
-        return v
-        """
-        session_id = await RedisClient.eval(lua_script, 1, key)
-        return session_id
-
-async def link_chat_to_session(session_id: str, chat_id: int) -> None:
-    """Link a Telegram chat_id to a browser session."""
-    try:
-        await RedisClient.set(f"{settings.session_chat_prefix}{session_id}", str(chat_id))
-        logger.info(f"Linked session {session_id} to chat {chat_id}")
-    except Exception as e:
-        logger.error(f"Failed to link session {session_id} to chat {chat_id}: {e}")
-        raise
+        return None
 
 @client.on(events.NewMessage(pattern=r"^/start(?:\s+(.+))?"))
 async def start_handler(event: events.NewMessage.Event) -> None:
@@ -74,24 +60,19 @@ async def start_handler(event: events.NewMessage.Event) -> None:
     logger.info(f"Linking browser session for chat_id={chat_id} with token={token}")
 
     try:
-        session_id = await consume_connect_token(token)
-        if not session_id:
+        saved_token_id = await consume_connect_token(token, user_id=str(chat_id))
+        if not saved_token_id:
                 await event.respond(
                     "⚠️ **Connection Failed**\n\n"
                     "This link has expired or was already used.\n"
                     "Please go back to the website and click 'Connect Telegram' again."
                 )
                 return
-        
-        # Link the chat to the session
-        await link_chat_to_session(session_id, chat_id)
-
-        await event.respond(
-                "✅ **Connected Successfully!**\n\n"
-                "Your Telegram is now linked to the website.\n"
-                "Go back and the page will automatically redirect.\n\n"
-                "💡 You can now receive anime episodes directly here!"
-            )
+        respond = await event.respond(
+            "✅ **Connected Successfully**\n\n"
+            "Your Telegram has been linked to your browser session.\n"
+            "You can now receive download links and notifications here."
+        )
     except Exception as e:
         logger.exception(f"Error linking start token: {e}")
         await event.respond(

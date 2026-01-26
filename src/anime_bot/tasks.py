@@ -111,18 +111,26 @@ class DownloadUploadTask:
             try:
                 await status(f"Uploading ep {ep_num} ({os.path.basename(res.filepath)}) ...")
 
+                # Improved progress callback with debouncing and percent threshold
+                last_update = {"time": 0, "percent": 0}
                 # progress callback factory
                 def progress_cb(current: int, total: int, s_time: float) -> None:
                     """Non-blocking progress callback for upload status updates."""
                     cur_time = time.time()
-                    if (cur_time - s_time) < PROGRESS_UPDATE_INTERVAL:
-                        return
-                    try:
-                        asyncio.create_task(
-                            status(f"Uploading ep {ep_num}: {current // (1024 * 1024)}/{total // (1024 * 1024)} MB")
-                        )
-                    except Exception:
-                        pass
+                    percent = int((current / total) * 100) if total else 0
+                    if (
+                        (cur_time - last_update["time"] >= PROGRESS_UPDATE_INTERVAL)
+                        and (percent - last_update["percent"] >= 5)
+                    ) or percent == 100:
+                        last_update["time"] = cur_time
+                        last_update["percent"] = percent
+                        try:
+                            status(f"Uploading ep {ep_num}: {current // (1024 * 1024)}/{total // (1024 * 1024)} MB ({percent}%)")
+                            # asyncio.create_task(
+                            #     status(f"Uploading ep {ep_num}: {current // (1024 * 1024)}/{total // (1024 * 1024)} MB")
+                            # )
+                        except Exception:
+                            pass
 
                 # TODO: replace chat id with the id of person who uploaded
                 caption = f"{self.anime_title} - Episode {ep_num}\n\nUploaded by: {self.chat_id}"
